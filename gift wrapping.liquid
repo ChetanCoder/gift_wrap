@@ -1,0 +1,110 @@
+{% if linklists.gift-wrapping.links.size > 0 and
+linklists.gift-wrapping.links.first.type == 'product_link' %}
+
+<div id="is-a-gift" style="clear: left; margin: 30px 0" class="clearfix rte">
+  <p>
+    <input id="gift-wrapping" type="checkbox" name="attributes[gift-wrapping]" value="yes"
+      {% if cart.attributes.gift-wrapping %}
+      checked="checked"
+      {% endif %}
+      style="height: 16px;width: 20px;"/>
+    <label for="gift-wrapping" style="display:inline; padding-left: 5px; float: none;">
+      For {{ linklists.gift-wrapping.links.first.object.price | money }} per item, please wrap the products in this order.
+    </label>
+  </p>
+<p>
+    <label style="display:block" for="gift-note">Gift message:</label>
+    <textarea name="attributes[gift-note]" id="gift-note">
+{{ cart.attributes.gift-note }}</textarea>
+  </p>
+</div>
+ 
+{% assign id = linklists.gift-wrapping.links.first.object.variants.first.id%} 
+{% assign gift_wraps_in_cart = 0 %} {% for item in cart.items %} 
+{% if item.id == id %} 
+{% assign gift_wraps_in_cart = item.quantity %} 
+{% endif %}
+{% endfor %} 
+{% assign items_in_cart = cart.item_count | minus:gift_wraps_in_cart %}
+   
+<style>
+  #updates_{{ id }} { display: none; }
+</style>
+
+<script>
+  Shopify.Cart = Shopify.Cart || {};
+  Shopify.Cart.GiftWrap = {};
+  Shopify.Cart.GiftWrap.set = function() {
+    var headers = new Headers({ 'Content-Type': 'application/json' });
+
+    var request = {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ updates: { {{ id }}: {{ items_in_cart }} }, attributes: { 'gift-wrapping': true } })
+    };
+    fetch('/cart/update.js', request)
+    .then(function() {
+      location.href = '/cart';
+    });
+  }
+
+  Shopify.Cart.GiftWrap.remove = function() {
+    var headers = new Headers({ 'Content-Type': 'application/json' });
+
+    var request = {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({ updates: { {{ id }}: 0 }, attributes: { 'gift-wrapping': '', 'gift-note': '' } })
+    };
+    fetch('/cart/update.js', request)
+    .then(function() {
+      location.href = '/cart';
+    });
+  }
+  {% if cart.items.size == 1 and gift_wraps_in_cart > 0 %}
+  document.addEventListener("DOMContentLoaded", function(){
+    Shopify.Cart.GiftWrap.remove();
+  });
+
+  {% elsif gift_wraps_in_cart > 0 and gift_wraps_in_cart != items_in_cart %}
+  document.addEventListener("DOMContentLoaded", function(){
+    Shopify.Cart.GiftWrap.set();
+  });
+  {% elsif gift_wraps_in_cart > 0 and cart.attributes.gift-wrapping == blank  %}
+  document.addEventListener("DOMContentLoaded", function(){
+    Shopify.Cart.GiftWrap.set();
+  });
+  {% elsif gift_wraps_in_cart == 0 and cart.attributes.gift-wrapping != blank  %}
+  document.addEventListener("DOMContentLoaded", function(){
+    Shopify.Cart.GiftWrap.set();
+  });
+    
+  {% endif %}
+
+  document.addEventListener("DOMContentLoaded", function(){
+    document.querySelector('[name="attributes[gift-wrapping]"]').addEventListener("change", function(event) {
+      if (event.target.checked) {
+        Shopify.Cart.GiftWrap.set();
+      } else {
+        Shopify.Cart.GiftWrap.remove();
+      }
+
+    });
+
+    document.querySelector('#gift-note').addEventListener("change", function(evt) {
+      var note = evt.target.value;
+      var headers = new Headers({ 'Content-Type': 'application/json' });
+
+      var request = {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ attributes: { 'gift-note': note } })
+      };
+
+      fetch('/cart/update.js', request);
+    });
+  });
+</script>
+{% else %}
+
+{% endif %}
